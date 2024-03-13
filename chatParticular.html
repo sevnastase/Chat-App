@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat with Contact</title>
+    <style>
+      body {
+          font-family: Arial, sans-serif;
+          margin: 0;
+          padding: 0;
+          height: 100vh;
+          background-color: #f7f7f7;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+      }
+      #chat-box {
+          width: 95%; /* Almost full width */
+          height: 95vh; /* Almost full height */
+          background-color: #fff;
+          box-shadow: 0 0 10px rgba(0,0,0,0.1);
+          border-radius: 5px;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+      }
+      #contact-header {
+          background-color: #4CAF50;
+          color: white;
+          padding: 20px;
+          font-size: 1.2rem;
+      }
+      #chat-messages {
+          flex-grow: 1; /* Use available space */
+          overflow-y: auto;
+          padding: 20px;
+          background-color: #e9e9e9;
+      }
+      #message-input-container {
+          padding: 20px;
+          background-color: #f9f9f9;
+          display: flex;
+      }
+      #message-input {
+          flex-grow: 1;
+          padding: 10px;
+          border: 1px solid #ddd;
+          border-radius: 3px;
+          margin-right: 10px;
+      }
+      #send-button {
+          background-color: #5cb85c;
+          color: white;
+          border: none;
+          padding: 10px 20px;
+          border-radius: 3px;
+          cursor: pointer;
+      }
+      #send-button:hover {
+          background-color: #4cae4c;
+      }
+      .message {
+          display: flex;
+          justify-content: flex-start;
+          margin-bottom: 10px;
+      }
+      .message.sent-by-user {
+          justify-content: flex-end;
+          background-color: #dcf8c6;
+      }
+      .message-content {
+          padding: 10px;
+          background-color: #fff;
+          border-radius: 4px;
+          max-width: 80%;
+          word-wrap: break-word;
+      }
+  </style>
+</head>
+<body>
+    <div id="chat-box">
+        <div id="contact-header">Chat with <span id="contact-name">...</span></div>
+        <div id="chat-messages">
+            <!-- Messages will be loaded here -->
+        </div>
+        <div id="message-input-container">
+            <input type="text" id="message-input" placeholder="Type your message...">
+            <button id="send-button">Send</button>
+        </div>
+    </div>
+
+    <script>
+        function getQueryParam(param) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(param);
+        }
+
+        function addMessageToChat(sender, message, isUserMessage) {
+            const chatMessages = document.getElementById('chat-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUserMessage ? 'sent-by-user' : ''}`;
+            const messageContentDiv = document.createElement('div');
+            messageContentDiv.className = 'message-content';
+            messageContentDiv.textContent = `${sender}: ${message}`;
+            messageDiv.appendChild(messageContentDiv);
+            chatMessages.appendChild(messageDiv);
+        }
+
+        function loadMessageHistory(contactEmail) {
+            const loggedInUserEmail = localStorage.getItem('loggedInUserEmail');
+            fetch(`/api/get-message-history?userEmail=${encodeURIComponent(loggedInUserEmail)}&contactEmail=${encodeURIComponent(contactEmail)}`)
+                .then(response => response.json())
+                .then(messages => {
+                    const chatMessages = document.getElementById('chat-messages');
+                    chatMessages.innerHTML = '';
+                    messages.forEach(message => {
+                        const isUserMessage = message.sender_email === loggedInUserEmail;
+                        const messageSender = isUserMessage ? 'You' : message.sender_email;
+                        addMessageToChat(messageSender, message.message, isUserMessage);
+                    });
+                })
+                .catch(error => {
+                    console.error('Failed to load message history:', error);
+                });
+        }
+
+        function sendMessage(messageContent, receiverEmail) {
+            const loggedInUserEmail = localStorage.getItem('loggedInUserEmail');
+            fetch('/api/send-message', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    senderEmail: loggedInUserEmail,
+                    receiverEmail: receiverEmail,
+                    messageContent: messageContent
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                addMessageToChat('You', messageContent, true);
+            })
+            .catch(error => {
+                console.error('Failed to send message:', error);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const contactEmail = getQueryParam('contact');
+            const contactHeader = document.getElementById('contact-name');
+            
+            if (contactEmail) {
+                contactHeader.textContent = contactEmail;
+                loadMessageHistory(contactEmail);
+            } else {
+                console.error('Contact email is missing from the URL query parameters.');
+            }
+
+            const sendButton = document.getElementById('send-button');
+            sendButton.addEventListener('click', () => {
+                const messageInput = document.getElementById('message-input');
+                const messageContent = messageInput.value.trim();
+                if (messageContent) {
+                    sendMessage(messageContent, contactEmail);
+                    messageInput.value = '';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

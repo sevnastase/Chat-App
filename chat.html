@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Application</title>
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f7f7f7;
+        }
+        #chat-app-container {
+            display: flex;
+            width: 90%; /* Increased overall width */
+            max-width: 1200px; /* New max-width */
+            height: 80%; /* Increased overall height */
+            border: 1px solid #ddd;
+            background-color: #fff;
+            margin: 2% auto; /* Center the container */
+        }
+        #sidebar {
+            width: 30%; /* Increased width for the sidebar */
+            border-right: 1px solid #ddd;
+            background-color: #f2f2f2;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        #sidebar-header {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        #add-user-form {
+            margin-bottom: 20px;
+        }
+        #add-user-input {
+            padding: 10px;
+            width: calc(100% - 20px);
+            margin-bottom: 10px;
+        }
+        #add-contact-button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #add-contact-button:hover {
+            background-color: #45a049;
+        }
+        #contact-list-title {
+            font-size: 16px;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        #contact-list {
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+        #chat-container {
+            flex-grow: 1; /* Allow chat container to fill up remaining space */
+            display: flex;
+            flex-direction: column;
+        }
+        .chat-header {
+            background: #eee;
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid #ddd;
+            font-size: 24px; /* Increased font size */
+        }
+        #chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #e5e5e5; /* Lighter background */
+        }
+        #message-input {
+            border: none;
+            padding: 10px;
+            width: 100%; /* Message input width */
+        }
+        .message {
+            margin: 5px 0;
+            padding: 10px;
+            background: #9AD1D4; /* Changed message background color */
+            border-radius: 5px;
+            display: block; /* Each message on a new line */
+        }
+        #send-button {
+            padding: 10px 20px;
+            background-color: #5cb85c;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #send-button:hover {
+            background-color: #4cae4c;
+        }
+        .contact {
+            padding: 10px;
+            cursor: pointer;
+        }
+        .active-contact {
+            background-color: #ddd; /* Style for the active contact */
+        }
+    </style>
+</head>
+<body>
+    <div id="chat-app-container">
+        <div id="sidebar">
+            <div id="sidebar-header">Contacts</div>
+            <form id="add-user-form">
+                <input type="text" id="add-user-input" placeholder="Enter user email...">
+                <button type="button" id="add-contact-button">Add Contact</button>
+            </form>
+            <div id="contact-list-title">Contact List</div>
+            <div id="contact-list">
+                <!-- Contacts will be added here -->
+            </div>
+        </div>
+        <div id="chat-container">
+            <div class="chat-header">Chat</div>
+            <div id="chat-messages">
+                <!-- Messages will appear here -->
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 10px; background: #f2f2f2; border-top: 1px solid #ddd;">
+                <input type="text" id="message-input" placeholder="Type your message here...">
+                <button id="send-button">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // When the page content has loaded, fetch the contact list and display it
+        document.addEventListener('DOMContentLoaded', function() {
+            const loggedInUserEmail = localStorage.getItem('loggedInUserEmail');
+    
+            if (!loggedInUserEmail) {
+                console.error('No logged-in user email found.');
+                // Redirect to login or handle appropriately
+                return;
+            }
+    
+            fetch(`/api/get-contacts?user_email=${encodeURIComponent(loggedInUserEmail)}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(contacts => {
+                    const contactListDiv = document.getElementById('contact-list');
+                    contactListDiv.innerHTML = ''; // Clear existing contacts
+                    contacts.forEach(contactEmail => {
+                        const contactDiv = document.createElement('div');
+                        contactDiv.textContent = contactEmail;
+                        contactDiv.classList.add('contact');
+                        contactDiv.addEventListener('click', function() {
+                            // Navigate to chatParticular.html with the contact email as a URL parameter
+                            window.location.href = `chatParticular.html?contact=${encodeURIComponent(contactEmail)}`;
+                        });
+                        contactListDiv.appendChild(contactDiv);
+                    });
+                })
+                .catch(error => {
+                    console.error('Failed to load contacts:', error);
+                });
+        });
+    
+        // Event listener for the Add Contact button
+        document.getElementById('add-contact-button').addEventListener('click', function() {
+            var userEmail = document.getElementById('add-user-input').value.trim();
+            const loggedInUserEmail = localStorage.getItem('loggedInUserEmail');
+    
+            if (userEmail) {
+                fetch('/api/add-contact', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ user_email: loggedInUserEmail, contact_email: userEmail })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // If the user exists and the contact was added, update the contact list in the DOM
+                        var contactListDiv = document.getElementById('contact-list');
+                        var newContactDiv = document.createElement('div');
+                        newContactDiv.textContent = userEmail;
+                        newContactDiv.classList.add('contact');
+                        newContactDiv.addEventListener('click', function() {
+                            // Navigate to chatParticular.html with the contact email as a URL parameter
+                            window.location.href = `chatParticular.html?contact=${encodeURIComponent(userEmail)}`;
+                        });
+                        contactListDiv.appendChild(newContactDiv);
+                    } else {
+                        alert(data.error); // Show the error from the server response
+                    }
+                    document.getElementById('add-user-input').value = ''; // Clear the input field
+                })
+                .catch(error => {
+                    console.error('Error adding contact:', error);
+                });
+            } else {
+                alert('Please enter an email address.');
+            }
+        });
+    </script>
+    
+</body>
+</html>
